@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS `jemimah`.`prd_lst` (
   `r_k` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `prd_ctg_r_k` INT UNSIGNED NOT NULL,
   `prd_nme` VARCHAR(300) NOT NULL,
-  `prd_dsc` MEDIUMTEXT NOT NULL,
+  `prd_dsc` VARCHAR(10000) NOT NULL,
   `prd_qty` INT NOT NULL,
   `curr_prc` DECIMAL(15,2) NOT NULL,
   `fmr_prc` DECIMAL(15,2) NULL,
@@ -390,9 +390,9 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prd_lst`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `bdc`.`vw_prd_lst`;
-DROP TABLE IF EXISTS `bdc`.`vw_prd_lst`;
-USE `bdc`;
+DROP VIEW IF EXISTS `jemimah`.`vw_prd_lst`;
+DROP TABLE IF EXISTS `jemimah`.`vw_prd_lst`;
+USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prd_lst`
 AS
 SELECT
@@ -417,9 +417,9 @@ FROM prd_lst pl;
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prm_bnr`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `bdc`.`vw_prm_bnr`;
-DROP TABLE IF EXISTS `bdc`.`vw_prm_bnr`;
-USE `bdc`;
+DROP VIEW IF EXISTS `jemimah`.`vw_prm_bnr`;
+DROP TABLE IF EXISTS `jemimah`.`vw_prm_bnr`;
+USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prm_bnr`
 AS
 SELECT
@@ -433,9 +433,9 @@ FROM prm_bnr pb;
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prd_ctg`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `bdc`.`vw_prd_ctg`;
-DROP TABLE IF EXISTS `bdc`.`vw_prd_ctg`;
-USE `bdc`;
+DROP VIEW IF EXISTS `jemimah`.`vw_prd_ctg`;
+DROP TABLE IF EXISTS `jemimah`.`vw_prd_ctg`;
+USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prd_ctg`
 AS
 SELECT
