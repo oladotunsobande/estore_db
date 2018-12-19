@@ -384,15 +384,29 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
+-- Table `jemimah`.`prm_vch`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `jemimah`.`prm_vch` (
+  `r_k` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `vch_unq_ref` VARCHAR(100) NOT NULL,
+  `vch_amt` DECIMAL(21,2) NOT NULL DEFAULT 0.00,
+  `vch_alw` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `iss_dte` DATETIME NOT NULL,
+  `vld_prd` INT NOT NULL DEFAULT 0,
+  `vch_stt` ENUM('ACTIVE', 'INACTIVE') NOT NULL,
+  `lst_dte` DATETIME NOT NULL,
+  PRIMARY KEY (`r_k`),
+  UNIQUE INDEX `r_k_UNIQUE` (`r_k` ASC))
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
 -- VIEWS
 -- -----------------------------------------------------
 
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prd_lst`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `jemimah`.`vw_prd_lst`;
-DROP TABLE IF EXISTS `jemimah`.`vw_prd_lst`;
-USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prd_lst`
 AS
 SELECT
@@ -417,9 +431,6 @@ FROM prd_lst pl;
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prm_bnr`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `jemimah`.`vw_prm_bnr`;
-DROP TABLE IF EXISTS `jemimah`.`vw_prm_bnr`;
-USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prm_bnr`
 AS
 SELECT
@@ -433,9 +444,6 @@ FROM prm_bnr pb;
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prd_ctg`
 -- -----------------------------------------------------
-DROP VIEW IF EXISTS `jemimah`.`vw_prd_ctg`;
-DROP TABLE IF EXISTS `jemimah`.`vw_prd_ctg`;
-USE `jemimah`;
 CREATE OR REPLACE VIEW `vw_prd_ctg`
 AS
 SELECT
@@ -445,6 +453,12 @@ SELECT
     pc.crtv_url_lst crtv_bnr_lst,
     pc.lst_upd upd_dte
 FROM prd_ctg pc;
+
+
+-- -----------------------------------------------------
+-- View `jemimah`.`vw_prm_vch`
+-- -----------------------------------------------------
+
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

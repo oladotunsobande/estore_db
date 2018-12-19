@@ -1,4 +1,53 @@
 -- -----------------------------------------------------
+-- procedure rtn_vch_vld
+-- -----------------------------------------------------
+
+DROP procedure IF EXISTS `jemimah`.`rtn_vch_vld`;
+
+DELIMITER $$
+CREATE DEFINER=`jmm_sys`@`%` PROCEDURE `rtn_vch_vld`(in ref_num varchar(100), out pr_dt json, out er_msg varchar(500))
+begin
+    declare iss_dt varchar(30);
+    declare vch_tnr integer;
+    declare vch_stat varchar(10);
+    declare dys_dff integer;
+    declare rp_vl json;
+    declare er_vl varchar(500);
+	declare exit handler for sqlexception
+	begin
+		get diagnostics condition 1 @errno = mysql_errno, @text = message_text;
+		set @err_msg = concat("ERR-", @errno, " : ", @text);
+		select @err_msg into er_msg;
+	end;
+
+    -- Get voucher's details
+    select iss_dte, vld_prd, vch_stt into iss_dt, vch_tnr, vch_stat from prm_vch where vch_unq_ref = ref_num;
+
+    if vch_stat = 'ACTIVE' then
+        -- Compute the difference in days
+        set dys_dff = datediff(curdate(), iss_dt);
+
+        if dys_dff <= vch_tnr then
+            call rtn_prd_lst('voucher_products', cast(ref_num as unsigned), @out, @err);
+            select @out, @err into rp_vl, er_vl from dual;
+
+            if rp_vl is not null and er_vl is null then
+                set pr_dt = rp_vl;
+            elseif rp_vl is null and er_vl is not null then
+                set er_msg = er_vl;
+            end if;
+        else
+            set pr_dt = json_object('message', 'Voucher is inactive');
+        end if;
+    else
+        set pr_dt = json_object('message', 'Voucher is inactive');
+    end if;
+end$$
+
+DELIMITER ;
+
+
+-- -----------------------------------------------------
 -- procedure rtn_prd_det
 -- -----------------------------------------------------
 
@@ -61,6 +110,7 @@ begin
         set pr_dt = prd_obj;
     end if;
 end$$
+
 DELIMITER ;
 
 -- -----------------------------------------------------
@@ -80,7 +130,7 @@ begin
     declare ctg_obj json;
     declare ctg_arr json default json_array();
     declare done integer default 0;
-    declare cursor csr_ctg_lst for
+    declare csr_ctg_lst cursor for
         select * from vw_prd_ctg; 
     declare continue handler for not found set done = 1;
 	declare exit handler for sqlexception
@@ -113,6 +163,7 @@ begin
 
     set pr_dt = ctg_arr;
 end$$
+
 DELIMITER ;
 
 
@@ -131,7 +182,7 @@ begin
     declare bnr_obj json;
     declare bnr_arr json default json_array();
     declare done integer default 0;
-    declare cursor csr_bnr_lst for
+    declare csr_bnr_lst cursor for
         select id, bnr_lnk from vw_prm_bnr; 
     declare continue handler for not found set done = 1;
 	declare exit handler for sqlexception
@@ -190,14 +241,17 @@ begin
     declare prd_img json;
     declare prd_sta varchar(20);
     declare upd_dt varchar(40);
+    declare vch_val decimal(21,2);
+    declare vch_ext decimal(15,2);
+    declare vch_amt_upb decimal(21,2);
     declare prd_obj json;
     declare prd_arr json default json_array();
     declare done integer default 0;
-    declare cursor csr_ctg_prd_lst for
+    declare csr_ctg_prd_lst cursor for
         select * from vw_prd_lst where ctg_id = ety_id;
-    declare cursor csr_prd_lst for
+    declare csr_prd_lst cursor for
         select * from vw_prd_lst;
-    declare cursor csr_prd_tp_sle for
+    declare csr_prd_tp_sle cursor for
         select * from vw_prd_lst order by sale_cnt desc; 
     declare continue handler for not found set done = 1;
 	declare exit handler for sqlexception
@@ -211,6 +265,45 @@ begin
         set er_msg = 'Arguments are null';
     else
         case act_typ
+            when 'voucher_products' then
+                -- Retrieve the voucher amount and the extra amount for the upper bound
+                select vch_amt, vch_alw into vch_val, vch_ext from prm_vch where vch_unq_ref = cast(ety_id as char);
+                set vch_amt_upb = vch_val + vch_ext; -- Get the upper bound amount
+
+                -- Get product list 
+                open csr_prd_lst;
+
+                loop1: loop
+                    fetch csr_prd_lst into
+                    prd_id, prd_ctg_id, ctg_nme, prd_nm, prd_det, prd_ttl, unt_prc, old_prc, dst_val, dst_amt, ext_dtls, qty_sld, prd_img, prd_sta, upd_dt;
+
+                    if done = 1 then
+                        leave loop1;
+                    end if;
+
+                    if unt_prc >= vch_val and unt_prc <= vch_amt_upb then 
+                        set prd_obj = json_object(
+                                        'prd_id', bnr_id,
+                                        'ctg_id', prd_ctg_id,
+                                        'ctg_nme', ctg_nme,
+                                        'prd_nme', prd_nm,
+                                        'prd_dtls', prd_det,
+                                        'prd_qty', prd_ttl,
+                                        'cur_unt_prc', unt_prc,
+                                        'old_unt_prc', old_prc,
+                                        'dsc_per_val', dst_val,
+                                        'dsc_amt', dst_amt,
+                                        'oth_dtls', ext_dtls,
+                                        'sle_qty', qty_sld,
+                                        'prd_imgs', prd_img,
+                                        'prd_stt', prd_sta,
+                                        'upd_dte', upd_dt
+                                    );
+                        set prd_arr = json_array_append(prd_arr, '$', prd_obj);
+                    end if;
+                end loop loop1;
+
+                close csr_prd_lst;
             when 'category_products' then
                 open csr_ctg_prd_lst;
 
