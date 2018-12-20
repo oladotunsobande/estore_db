@@ -1,4 +1,155 @@
 -- -----------------------------------------------------
+-- procedure rtn_cus_dtls
+-- -----------------------------------------------------
+
+DROP procedure IF EXISTS `jemimah`.`rtn_cus_dtls`;
+
+DELIMITER $$
+CREATE DEFINER=`jmm_sys`@`%` PROCEDURE `rtn_cus_dtls`(in cus_id int, out pr_dt json, out er_msg varchar(500))
+begin
+    declare usr_id integer;
+    declare fst_nam varchar(100);
+    declare lst_nam varchar(300);
+    declare cust_add varchar(1000);
+    declare cust_eml varchar(1000);
+    declare phn_nmb varchar(45);
+    declare cust_gdr varchar(15);
+    declare lga_nm varchar(100);
+    declare sta_nm varchar(45);
+    declare acc_stat varchar(15);
+    declare bsc_obj json;
+    declare add_obj json;
+    declare rsp_obj json;
+	declare exit handler for sqlexception
+	begin
+		get diagnostics condition 1 @errno = mysql_errno, @text = message_text;
+		set @err_msg = concat("ERR-", @errno, " : ", @text);
+		select @err_msg into er_msg;
+	end;
+
+    if cus_id is null or cus_id = '' then
+        set er_msg = 'Argument is null';
+    else
+        select 
+        id, fst_nm, lst_nm, cus_addr, lga_nme, sta_nme, cus_eml, phn_nm, cus_gdr, acc_stt
+        into 
+        usr_id, fst_nam, lst_nam, cust_add, lga_nm, sta_nm, cust_eml, phn_nmb, cust_gdr, acc_stat
+        from vw_cus_dtls
+        where id = cus_id;
+
+        set bsc_obj = json_object(
+                        'cust_id', usr_id,
+                        'fst_nme', fst_nm,
+                        'lst_nme', lst_nm,
+                        'cust_eml', cust_eml,
+                        'phn_num', phn_nmb,
+                        'cust_gdr' cust_gdr
+                    );
+        set add_obj = json_object(
+                        'res_add', cust_add,
+                        'lga_nme', lga_nm,
+                        'sta_nme', sta_nm
+                    );
+
+        set rsp_obj = json_object('basic', bsc_obj, 'address', add_obj);
+
+        set pr_dt = rsp_obj;
+    end if;
+end$$
+
+DELIMITER ;
+
+
+-- -----------------------------------------------------
+-- procedure rtn_ath_dtls
+-- -----------------------------------------------------
+
+DROP procedure IF EXISTS `jemimah`.`rtn_ath_dtls`;
+
+DELIMITER $$
+CREATE DEFINER=`jmm_sys`@`%` PROCEDURE `rtn_ath_dtls`(in usr_typ varchar(50), in usr_eml varchar(500), out pr_dt json, out er_msg varchar(500))
+begin
+    declare usr_id integer;
+    declare hsh_pwd varchar(1000);
+    declare pwd_slt varchar(700);
+    declare acc_stat varchar(15);
+    declare rsp_obj json;
+	declare exit handler for sqlexception
+	begin
+		get diagnostics condition 1 @errno = mysql_errno, @text = message_text;
+		set @err_msg = concat("ERR-", @errno, " : ", @text);
+		select @err_msg into er_msg;
+	end;
+
+    if (usr_typ is not null and usr_typ != '') and (usr_eml is not null and usr_eml != '') then
+        case usr_typ
+            when 'customer' then
+                select pwd_hsh, hsh_slt, acc_stt into hsh_pwd, pwd_slt, acc_stat from vw_cus_dtls where cus_eml = usr_eml;
+                if acc_stat = 'ACTIVE' then
+                    set pr_dt = json_object('pwd_hsh', hsh_pwd, 'hsh_slt', pwd_slt);
+                else
+                    set pr_dt = json_object('message', 'User account is inactive');
+                end if;
+            when 'admin' then
+                null;
+        end case;
+    else
+        set er_msg = 'Arguments are null';
+    end if;
+end$$
+
+DELIMITER ;
+
+
+-- -----------------------------------------------------
+-- procedure rtn_ath_usr
+-- -----------------------------------------------------
+
+DROP procedure IF EXISTS `jemimah`.`rtn_ath_usr`;
+
+DELIMITER $$
+CREATE DEFINER=`jmm_sys`@`%` PROCEDURE `rtn_ath_usr`(in usr_typ varchar(50), in usr_id int, in ses_tkn varchar(1000), out pr_stt int, out er_msg varchar(500))
+begin
+    declare rw_cnt integer;
+    declare acc_stat varchar(15);
+    declare vch_stat varchar(10);
+    declare dys_dff integer;
+    declare rp_vl json;
+    declare er_vl varchar(500);
+	declare exit handler for sqlexception
+	begin
+		get diagnostics condition 1 @errno = mysql_errno, @text = message_text;
+		set @err_msg = concat("ERR-", @errno, " : ", @text);
+		select @err_msg into er_msg;
+	end;
+
+    if (usr_typ is not null and usr_typ != '') and (usr_id is not null and usr_id != '') and (ses_tkn is not null and ses_tkn != '') then
+        case usr_typ
+            when 'customer' then
+                select count(*) into rw_cnt from vw_cus_dtls where id = usr_id and acc_stt = 'ACTIVE';
+
+                if rw_cnt = 1 then
+                    set rsp_arr = json_array_append(rsp_arr, '$', ses_tkn);
+
+                    update cust_ath set ath_tkn = rsp_arr, lst_upd = now() where id = usr_id;
+                    commit;
+
+                    set pr_stt = 1;
+                else
+                    set pr_stt = 0;
+                end if;
+            when 'admin' then
+                null;
+        end case;
+    else
+        set er_msg = 'Arguments are null';
+    end if;
+end$$
+
+DELIMITER ;
+
+
+-- -----------------------------------------------------
 -- procedure rtn_vch_vld
 -- -----------------------------------------------------
 
@@ -20,27 +171,31 @@ begin
 		select @err_msg into er_msg;
 	end;
 
-    -- Get voucher's details
-    select iss_dte, vld_prd, vch_stt into iss_dt, vch_tnr, vch_stat from prm_vch where vch_unq_ref = ref_num;
+    if ref_num is not null and ref_num != '' then
+        -- Get voucher's details
+        select iss_dte, vld_prd, vch_stt into iss_dt, vch_tnr, vch_stat from prm_vch where vch_unq_ref = ref_num;
 
-    if vch_stat = 'ACTIVE' then
-        -- Compute the difference in days
-        set dys_dff = datediff(curdate(), iss_dt);
+        if vch_stat = 'ACTIVE' then
+            -- Compute the difference in days
+            set dys_dff = datediff(curdate(), iss_dt);
 
-        if dys_dff <= vch_tnr then
-            call rtn_prd_lst('voucher_products', cast(ref_num as unsigned), @out, @err);
-            select @out, @err into rp_vl, er_vl from dual;
+            if dys_dff <= vch_tnr then
+                call rtn_prd_lst('voucher_products', cast(ref_num as unsigned), @out, @err);
+                select @out, @err into rp_vl, er_vl from dual;
 
-            if rp_vl is not null and er_vl is null then
-                set pr_dt = rp_vl;
-            elseif rp_vl is null and er_vl is not null then
-                set er_msg = er_vl;
+                if rp_vl is not null and er_vl is null then
+                    set pr_dt = rp_vl;
+                elseif rp_vl is null and er_vl is not null then
+                    set er_msg = er_vl;
+                end if;
+            else
+                set pr_dt = json_object('message', 'Voucher is inactive');
             end if;
         else
             set pr_dt = json_object('message', 'Voucher is inactive');
         end if;
     else
-        set pr_dt = json_object('message', 'Voucher is inactive');
+        set er_msg = 'Arguments are null';
     end if;
 end$$
 
@@ -79,7 +234,7 @@ begin
 		select @err_msg into er_msg;
 	end;
 
-    if prd_rk = null or prd_rk = '' then
+    if prd_rk is null or prd_rk = '' then
         set er_msg = 'Argument is null';
     else
         select 
@@ -261,7 +416,7 @@ begin
 		select @err_msg into er_msg;
 	end;
 
-    if (act_typ = null or act_typ = '') and (ety_id = null or ety_id = '') then
+    if (act_typ is null or act_typ = '') and (ety_id is null or ety_id = '') then
         set er_msg = 'Arguments are null';
     else
         case act_typ

@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS `jemimah`.`cust_ath` (
   `cust_mstr_r_k` INT UNSIGNED NOT NULL,
   `ath_hsh` VARCHAR(1000) NOT NULL,
   `ath_slt` VARCHAR(700) NOT NULL,
+  `ath_tkn` JSON NOT NULL,
   `sec_qtn` VARCHAR(500) NOT NULL,
   `sec_ans` VARCHAR(500) NOT NULL,
   `acct_stt` ENUM('ACTIVE', 'INACITVE') NOT NULL,
@@ -403,6 +404,30 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- VIEWS
 -- -----------------------------------------------------
+
+-- -----------------------------------------------------
+-- View `jemimah`.`vw_cus_dtls`
+-- -----------------------------------------------------
+CREATE OR REPLACE VIEW `vw_cus_dtls`
+AS
+SELECT
+    cm.r_k id,
+    cm.fst_nme fst_nm,
+    cm.lst_nme lst_nm,
+    sd.res_addr cus_addr,
+    (select lga_nme from lga_lst where r_k = sd.lga_lst_r_k) lga_nme,
+    (select sl.ste_nme from ste_lst sl, lga_lst ll where sl.r_k = ll.ste_lst_r_k and ll.r_k = sd.lga_lst_r_k) sta_nme,
+    cm.usr_eml cus_eml,
+    cm.phn_num phn_nm,
+    cm.usr_gdr cus_gdr,
+    ca.ath_hsh pwd_hsh,
+    ca.ath_slt hsh_slt,
+    ca.sec_qtn sec_qn,
+    ca.sec_ans sec_anw,
+    ca.acct_stt acc_stt
+FROM cust_mstr cm, shp_dtls sd, cust_ath ca
+WHERE cm.r_k = ca.cust_mstr_r_k and cm.r_k = sd.cust_mstr_r_k;    
+
 
 -- -----------------------------------------------------
 -- View `jemimah`.`vw_prd_lst`
